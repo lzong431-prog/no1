@@ -658,6 +658,7 @@ if(box){
       showErr(e);
       setState('err','对账失败');
     }
+
   });
   $('clear').addEventListener('click',()=>{
     if(confirm('确认清空本地命中日志？')){
