@@ -557,6 +557,8 @@ if(box){
     // 记录日志（待对账）
     const logs=loadLogs();
     const planNums=picks.map(x=>x.num);
+    // ===== 新增：计划号码按从小到大排序
+    planNums.sort((a, b) => a - b);
     const i=logs.findIndex(x=> String(x.issue) === String(nextIssue) );
     if(i>=0){ logs[i].plan=planNums; logs[i].ts=Date.now(); }
     else{ logs.push({ts:Date.now(),issue:String(nextIssue),plan:planNums,actual:null}); }
