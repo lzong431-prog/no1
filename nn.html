@@ -1,695 +1,678 @@
-<!doctype html>
-<html lang="zh-CN">
+<!DOCTYPE html>
+<html lang="zh">
 <head>
-<meta charset="utf-8"/>
-<meta name="viewport" content="width=device-width,initial-scale=1"/>
-<title>极速赛车</title>
+<meta charset="utf-8">
+<title>布林通道预测（阈值区间接近通知 · 轻量绘图）</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <style>
-:root{
-  --bg:#ffffff; --card:#ffffff; --muted:#555; --text:#222; --acc:#0078d7;
-  --ok:#16a34a; --err:#ef4444; --line:#e5e7eb; --shadow:0 1px 2px rgba(0,0,0,.05)
-}
-*{box-sizing:border-box}
-html,body{margin:0;background:var(--bg);color:var(--text);font:14px/1.55 system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial}
-.wrap{max-width:1200px;margin:20px auto;padding:0 16px}
-h1{font-size:22px;margin:0 0 12px}
-.badge{display:inline-block;border:1px solid var(--line);border-radius:6px;padding:2px 8px;margin-left:6px;color:var(--muted);background:#f9fafb}
-.card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:16px;margin:12px 0;box-shadow:var(--shadow)}
-label{display:block;color:var(--muted);font-size:12px;margin:6px 0 6px}
-input,select,button,textarea{width:100%;background:#fff;color:var(--text);border:1px solid #ccc;border-radius:6px;padding:8px 10px;outline:none}
-input[type="checkbox"]{width:auto}
-button{cursor:pointer}
-button.primary{background:var(--acc);color:#fff;font-weight:600;border:none}
-.hint{color:var(--muted);font-size:12px}
-.toolbar{display:flex;gap:12px;flex-wrap:wrap}
-.toolbar>div{flex:1 1 220px;min-width:200px}
-.nums span{display:inline-block;min-width:30px;text-align:center;border:1px solid #ddd;border-radius:6px;padding:4px 6px;margin-right:6px;background:#f9fafb}
-.grid{width:100%;border-collapse:collapse;margin-top:8px;font-size:13px}
-.grid th,.grid td{padding:8px 10px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}
-.pill{display:inline-block;padding:2px 8px;border-radius:999px;font-size:12px}
-.pill.hit{background:#d1fae5;border:1px solid #16a34a;color:#166534}
-.pill.miss{background:#fee2e2;border:1px solid #ef4444;color:#991b1b}
-pre.err{white-space:pre-wrap;background:#fef2f2;border:1px solid #fecaca;border-radius:6px;padding:10px;color:#991b1b}
-.statebar{display:flex;gap:8px;align-items:center;font-size:13px;color:var(--muted)}
-.statebar .dot{width:8px;height:8px;border-radius:50%}
-.statebar .ok{background:var(--ok)} .statebar .wait{background:#f59e0b} .statebar .err{background:var(--err)}
-header.top{position:sticky;top:0;background:#fff;z-index:20;border-bottom:1px solid var(--line);box-shadow:var(--shadow)}
-header.top .bar{max-width:1200px;margin:0 auto;padding:8px 16px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
-header.top .bar .right{margin-left:auto;display:flex;gap:12px;align-items:center;font-size:13px;color:var(--muted)}
-code.inline{background:#f3f4f6;border:1px solid #e5e7eb;border-radius:4px;padding:0 6px}
-
-/* 主体两栏：主区域 + 右侧日志侧栏（桌面显示） */
-.mainGrid{display:grid;grid-template-columns:1fr 360px;gap:16px}
-@media (max-width: 980px){.mainGrid{grid-template-columns:1fr}}
-.sidebar{position:sticky;top:64px;align-self:start;height:calc(100vh - 80px);overflow:auto}
-
-/* 移动端：右上角“日志抽屉”按钮 + 抽屉容器 */
-#openDrawer{display:none}
-@media (max-width:980px){#openDrawer{display:inline-block}}
-.drawer{
-  position:fixed;right:-100%;top:56px;width:92%;max-width:520px;height:calc(100vh - 64px);
-  background:#fff;border-left:1px solid var(--line);box-shadow:-4px 0 12px rgba(0,0,0,.06);transition:right .25s ease;z-index:30;display:flex;flex-direction:column
-}
-.drawer.show{right:0}
-.drawer .hd{display:flex;justify-content:space-between;align-items:center;padding:10px 12px;border-bottom:1px solid var(--line)}
-.drawer .bd{padding:12px;overflow:auto}
-
-/* 当天历史记录：可折叠 + 限高滚动 */
-details.hist summary{cursor:pointer;user-select:none;list-style:none;display:flex;align-items:center;gap:8px}
-details.hist summary::marker{display:none}
-details.hist[open] summary .arrow{transform:rotate(90deg)}
-.arrow{transition:transform .15s ease}
-.histWrap{max-height:320px;overflow:auto;border:1px solid var(--line);border-radius:8px;padding:6px;margin-top:8px}
-.compactRow td{padding-top:6px;padding-bottom:6px}
+body { font-family: Arial; margin:20px; color:#222; }
+h2 { margin:6px 0 10px; }
+#controls { display:flex; gap:12px; align-items:center; margin-bottom:12px; flex-wrap:wrap; }
+#prediction { font-size:18px; margin-bottom:8px; color:#0066cc; }
+input[type="text"], input[type="password"], input[type="number"] { padding:6px; border:1px solid #ccc; border-radius:4px; width:200px; }
+button { padding:6px 10px; border-radius:4px; border:1px solid #bbb; background:#f7f7f7; cursor:pointer; }
+button.primary { background:#0066cc; color:#fff; border-color:#0057a3; }
+#latestResult { margin:8px 0 12px; padding:10px; border:1px solid #ccc; background:#fafafa; }
+#last30 { display:flex; gap:6px; align-items:center; margin:10px 0; flex-wrap:nowrap; overflow-x:auto; padding:6px 0; }
+.box { width:34px; height:34px; border-radius:6px; display:flex; align-items:center; justify-content:center; font-weight:700; color:#fff; box-shadow:0 1px 2px rgba(0,0,0,0.07); }
+.box.small { background: #1976d2; } /* blue for 小 */
+.box.big { background: #2e7d32; }   /* green for 大 */
+.box.latest { outline: 3px solid rgba(0,0,0,0.12); }
+#stats { margin:8px 0 12px; padding:8px; border:1px solid #ddd; background:#fffbe6; }
+#recordPanel { margin-top:12px; max-height:340px; overflow:auto; border:1px solid #ccc; padding:10px; background:#fff; }
+table { border-collapse: collapse; width:100%; }
+th, td { border:1px solid #ddd; padding:6px; text-align:center; font-size:13px; }
+th { background:#f0f0f0; }
+.small { font-size:12px; color:#666; }
+.status { font-size:13px; color:#555; margin-left:8px; }
 </style>
 </head>
 <body>
-<header class="top">
-  <div class="bar">
-    <div class="statebar">
-      <div id="stateDot" class="dot wait"></div>
-      <div id="stateText">等待操作</div>
-    </div>
-    <div class="right">
-      <button id="openDrawer" class="primary" style="padding:6px 10px">查看命中日志</button>
-      <div>下次自动更新：<span id="countdown">--</span></div>
-      <div>上次成功：<span id="lastOk">--</span></div>
-      <div>错误计数：<span id="errCnt">0</span></div>
-    </div>
+
+<h2>第一名 · 布林通道预测（阈值区间接近通知）</h2>
+
+<div id="controls">
+  <div>
+    <label>Bot Token：</label><br>
+    <input id="botTokenInput" type="password" placeholder="123456:ABC-DEF_your_bot_token" />
   </div>
-</header>
+  <div>
+    <label>Chat ID：</label><br>
+    <input id="chatIdInput" type="text" placeholder="目标 chat_id（群或个人）" />
+  </div>
 
-<div class="wrap">
-  <h1>马上发财
-    <span class="badge">稳住</span>
-    <span class="badge">能赢</span>
-  </h1>
+  <div>
+    <label>高阈值（接近40）：</label><br>
+    <input id="highThreshInput" type="number" step="1" value="38" />
+  </div>
+  <div>
+    <label>低阈值（接近-10）：</label><br>
+    <input id="lowThreshInput" type="number" step="1" value="-8" />
+  </div>
 
-  <div class="mainGrid">
-    <!-- 主区域 -->
-    <section>
-      <!-- 控制 + 结果 -->
-      <section class="card">
-        <div class="toolbar">
-          <div>
-            <label>日期（YYYY-MM-DD）</label>
-            <input id="date" placeholder="2025-08-21">
-          </div>
-          <div>
-            <label>取数方式</label>
-            <select id="mode">
-              <option value="direct">直连 API</option>
-              <option value="proxy">通过代理</option>
-              <option value="paste">手动粘贴 JSON</option>
-            </select>
-          </div>
-          <div>
-            <label>计划码数量 K</label>
-            <input id="k" type="number" value="5" min="1" max="10">
-          </div>
-        </div>
-        <div class="toolbar">
-          <div>
-            <label>API 基础地址</label>
-            <input id="api" value="https://api.api68.com/pks/getPksHistoryList.do">
-            <div class="hint">自动拼接 <code class="inline">?lotCode=10037&date=YYYY-MM-DD</code></div>
-          </div>
-          <div>
-            <label>代理前缀</label>
-            <input id="proxy" placeholder="https://your-proxy.example.com/ 或 https://your-proxy.example.com/{url}">
-          </div>
-          <div>
-            <label>半衰期（期数）</label>
-            <input id="halfLife" type="number" value="60" min="1" max="500">
-          </div>
-          <div>
-            <label>融合权重 α</label>
-            <input id="alpha" type="number" step="0.05" value="0.7" min="0" max="1">
-          </div>
-        </div>
-        <div class="toolbar">
-          <div><label><input id="autoToggle" type="checkbox"> 启用自动更新</label></div>
-          <div>
-            <label>频率（秒）</label>
-            <input id="autoSec" type="number" value="30" min="5" max="180">
-          </div>
-        </div>
-        <div class="toolbar">
-          <button id="go" class="primary">立即预测</button>
-          <button id="reconcile">最新期对账</button>
-          <button id="clear">清空日志</button>
-        </div>
+  <div>
+    <label>阈值缓冲（±）：</label><br>
+    <input id="marginInput" type="number" step="1" value="5" />
+  </div>
 
-        <div id="resultCard" style="display:none;margin-top:12px">
-          <div><b>下一期预测（冠军位）</b></div>
-          <div id="nextIssue" class="hint"></div>
-          <div id="plan" class="nums" style="margin-top:6px"></div>
-          <div id="latest" class="hint" style="margin-top:8px"></div>
-          <div id="params" class="hint" style="margin-top:8px"></div>
-        </div>
+  <div style="display:flex;flex-direction:column;gap:6px;">
+    <button id="saveCredBtn" class="primary">保存设置</button>
+    <button id="testNotifyBtn">测试通知</button>
+    <div class="status" id="credStatus"></div>
+  </div>
 
-        <div id="errCard" style="display:none;margin-top:10px">
-          <b>错误信息</b>
-          <pre class="err" id="errText"></pre>
-          <div class="hint">常见原因：1) CORS 2) 当天暂无数据 3) 返回结构不同 4) 代理未正确转发</div>
-        </div>
-
-        <!-- 粘贴 JSON -->
-        <div id="pasteBox" style="display:none;margin-top:12px">
-          <label>手动粘贴返回 JSON（原样粘贴）</label>
-          <textarea id="jsonArea" rows="6" placeholder='把 https://api.api68.com/... 返回的完整 JSON 粘这里'></textarea>
-          <div class="hint">在“手动粘贴 JSON”模式下，按钮会直接使用这里的 JSON。</div>
-        </div>
-      </section>
-
-      <!-- 当天历史记录（折叠 + 限高滚动 + 条数选择） -->
-      <section class="card">
-        <details class="hist" id="histDetails">
-          <summary>
-            <span class="arrow">▶</span>
-            <b>当天历史记录</b>
-            <span class="hint">（默认显示最近 20 条，展开可查看全部）</span>
-          </summary>
-          <div class="toolbar" style="margin-top:10px">
-            <div style="max-width:200px">
-              <label>显示条数</label>
-              <select id="histCount">
-                <option value="20" selected>最近 20 条</option>
-                <option value="50">最近 50 条</option>
-                <option value="all">全部</option>
-              </select>
-            </div>
-            <div style="max-width:260px">
-              <label>搜索（按期号/时间包含）</label>
-              <input id="histSearch" placeholder="例如 2025-08 或 期号片段">
-            </div>
-          </div>
-          <div class="histWrap">
-            <table class="grid" id="historyTbl">
-              <thead><tr><th>期号</th><th>时间</th><th>冠军</th><th>前十</th></tr></thead>
-              <tbody></tbody>
-            </table>
-          </div>
-        </details>
-      </section>
-    </section>
-
-    <!-- 右侧：命中日志（桌面为侧栏；移动端抽屉） -->
-    <aside class="sidebar">
-      <section class="card" id="logCardDesktop">
-        <b>命中日志（localStorage）</b>
-
-<div id="riskBox" class="hint" style="margin-top:6px">
-  当前状态：-- ｜ 当前下注：-- ｜ 总盈亏：0 ｜ 最大回撤：0 ｜ 连挂：0
-</div>
-
-<div id="logStats" class="hint" style="margin-top:6px">
-  总期数：0 ｜ 最大连中：0 ｜ 最大连挂：0
-</div>
-        <div class="hint" style="margin-top:4px">随时可见；手机端请点右上角“查看命中日志”。</div>
-        <div style="max-height:calc(100vh - 220px);overflow:auto;margin-top:8px">
-          <table class="grid" id="logTbl">
-            <thead><tr><th>时间</th><th>预测期号</th><th>计划</th><th>1</th><th>命中</th></tr></thead>
-            <tbody></tbody>
-          </table>
-        </div>
-        <div class="hint">键名：<code class="inline">pks_logs_10037</code></div>
-      </section>
-    </aside>
+  <div style="margin-left:auto;">
+    <button onclick="exportPredictionCSV()">导出预测记录 CSV</button>
   </div>
 </div>
 
-<!-- 移动端日志抽屉 -->
-<div class="drawer" id="drawer">
-  <div class="hd">
-    <b>命中日志</b>
-    <button id="closeDrawer">关闭</button>
-  </div>
-  <div class="bd">
-    <table class="grid">
-      <thead><tr><th>时间</th><th>预测期号</th><th>计划</th><th>实际冠军</th><th>命中</th></tr></thead>
-      <tbody id="logTblMobile"></tbody>
-    </table>
-  </div>
+<div id="prediction">等待最新预测…</div>
+<canvas id="chart" width="1200" height="420"></canvas>
+
+<div id="latestResult">最新开奖：加载中…</div>
+
+<div id="last30" title="近30期第一名（右侧为最新）"></div>
+
+<div id="stats">
+  <strong>统计</strong>：
+  <span id="statTotal">总预测: 0</span>　
+  <span id="statValid">有效: 0</span>　
+  <span id="statInvalid">无效: 0</span>　
+  <span id="statHits">命中: 0</span>　
+  <span id="statRate">总体命中率: 0%</span>　
+  <span id="statCurStreak">当前连挂: 0</span>　
+  <span id="statMaxStreak">最大连挂: 0</span>　
+  <span id="statLock">当前锁定: 无</span>　
+  <span id="statOsc">振荡: 无</span>
+  <div class="small" id="statDetail"></div>
+</div>
+
+<div id="recordPanel">
+  <h3>预测记录（包含有效/无效/锁定/振荡）</h3>
+  <table>
+    <thead>
+      <tr>
+        <th>预测期号</th>
+        <th>类型</th>
+        <th>预测</th>
+        <th>实际</th>
+        <th>命中</th>
+        <th>锁定期数</th>
+        <th>振荡</th>
+        <th>预测时间</th>
+      </tr>
+    </thead>
+    <tbody id="recordBody"></tbody>
+  </table>
 </div>
 
 <script>
-(function(){
-  const $=id=>document.getElementById(id);
-  const LOG_KEY='pks_logs_10037';
-// ===== 风控与状态配置 =====
-const OBSERVE_ROUNDS = 3;          // 观察局数
-const OBSERVE_BET = 5;             // 观察局投注
-const BET_SEQ = [5,10,20,40,80,160,320];
-const MISS_WARN = 5;               // 连挂预警阈值（可改）
+/* ====== 基础配置 ====== */
+const API = "https://api.api68.com/pks/getPksHistoryList.do?lotCode=10037";
+const WINDOW = 20;
+const DECAY = 0.85;
+const UPDATE_INTERVAL = 1000;
 
-// ===== 盈亏 + 状态 + 回撤 + 连挂 统一计算 =====
-function calcRiskFromLogs(logs){
-  let profit = 0;
-  let peakProfit = 0;
-  let maxDrawdown = 0;
+/* ====== 状态 ====== */
+let labels = [], redArr = [], midArr = [], upperArr = [], lowerArr = [];
+let firstNums = [];
+let predictionRecords = [];
+let markLines = [];
+let lastPredictedIssue = null;
+let chart = null;
+let activeLock = null;
 
-  let mode = 'observe';            // observe | bet
-  let observeLeft = OBSERVE_ROUNDS;
-  let betIdx = 0;
-  let curBet = OBSERVE_BET;
+/* ====== 通知阈值 & 防重通知状态 ====== */
+let lastNotifiedHighIssue = null;
+let lastNotifiedLowIssue = null;
+let lastNotifiedMissStreak = 0;
+let lastNotifiedHitStreak = 0;
+/* 用于“从外部进入区间”检测，避免连续多期重复通知 */
+let prevHighInRange = false;
+let prevLowInRange = false;
 
-  let curMiss = 0;
-  let warn = false;
+/* ====== 默认阈值（可由 UI 修改） ====== */
+const DEFAULT_HIGH = 38;
+const DEFAULT_LOW = -8;
+const DEFAULT_MARGIN = 5;
 
-  logs
-    .filter(l => l.actual !== null)
-    .sort((a,b)=>a.ts - b.ts)
-    .forEach(l=>{
-      const hit = Array.isArray(l.plan) && l.plan.includes(l.actual);
+/* ====== 工具 ====== */
+const mean = a => a.reduce((x,y)=>x+y,0)/a.length;
+const std = a => Math.sqrt(mean(a.map(x=>(x-mean(a))**2)));
 
-      // ===== 观察阶段 =====
-      if(mode === 'observe'){
-        curBet = OBSERVE_BET;
-
-        if(hit){
-          profit += curBet;
-          curMiss = 0;
-          observeLeft = OBSERVE_ROUNDS;
-        }else{
-          profit -= curBet;
-          curMiss++;
-          observeLeft--;
-        }
-
-        if(observeLeft <= 0){
-          mode = 'bet';
-          betIdx = 0;
-        }
-      }
-      // ===== 投注阶段 =====
-      else{
-        curBet = BET_SEQ[betIdx];
-
-        if(hit){
-          profit += curBet;
-          curMiss = 0;
-          mode = 'observe';
-          observeLeft = OBSERVE_ROUNDS;
-          betIdx = 0;
-        }else{
-          profit -= curBet;
-          curMiss++;
-          betIdx++;
-        }
-
-        if(betIdx >= BET_SEQ.length){
-          mode = 'observe';
-          observeLeft = OBSERVE_ROUNDS;
-          betIdx = 0;
-        }
-      }
-
-      // ===== 最大回撤 =====
-      peakProfit = Math.max(peakProfit, profit);
-      maxDrawdown = Math.min(maxDrawdown, profit - peakProfit);
-
-      // ===== 连挂预警 =====
-      if(curMiss >= MISS_WARN){
-        warn = true;
-      }
-    });
-
+/* ====== 保存 / 加载设置（Token/ChatID/阈值/缓冲） ====== */
+function saveSettings(){
+  localStorage.setItem("tg_bot_token", document.getElementById("botTokenInput").value.trim());
+  localStorage.setItem("tg_chat_id", document.getElementById("chatIdInput").value.trim());
+  localStorage.setItem("notify_high_thresh", document.getElementById("highThreshInput").value.trim());
+  localStorage.setItem("notify_low_thresh", document.getElementById("lowThreshInput").value.trim());
+  localStorage.setItem("notify_margin", document.getElementById("marginInput").value.trim());
+  updateCredStatus();
+}
+function loadSettings(){
   return {
-    profit,
-    maxDrawdown,
-    mode,
-    curBet,
-    curMiss,
-    warn
+    token: localStorage.getItem("tg_bot_token") || "",
+    chatId: localStorage.getItem("tg_chat_id") || "",
+    high: parseFloat(localStorage.getItem("notify_high_thresh") || DEFAULT_HIGH),
+    low: parseFloat(localStorage.getItem("notify_low_thresh") || DEFAULT_LOW),
+    margin: parseFloat(localStorage.getItem("notify_margin") || DEFAULT_MARGIN)
   };
 }
-  let errCount=0, autoTimer=null, cdTimer=null, nextTs=0;
-  let lastRecs = []; // 缓存当天记录，便于筛选/搜索
-
-  // —— 状态栏 ——
-  function setState(type,text){ $('stateDot').className='dot '+(type||'wait'); $('stateText').textContent=text||'' }
-  function setLastOk(ts){ $('lastOk').textContent = ts ? new Date(ts).toLocaleString() : '--' }
-  function setErrCnt(n){ $('errCnt').textContent=String(n) }
-  function startCountdown(){
-    const sec = Math.max(0, Math.ceil((nextTs - Date.now())/1000));
-    $('countdown').textContent = (autoTimer? sec : '--');
-    if (cdTimer) clearTimeout(cdTimer);
-    if (!autoTimer) return;
-    cdTimer = setTimeout(startCountdown, 250);
-  }
-
-  // —— 错误展示 ——
-  function showErr(e){ $('errCard').style.display='block'; $('errText').textContent=String(e?.stack||e) }
-  function hideErr(){ $('errCard').style.display='none'; $('errText').textContent='' }
-
-  // —— 数学工具 ——
-  const zeros10=()=>Array(10).fill(0);
-  const normalize10=a=>{const s=a.reduce((x,y)=>x+y,0)||1; return a.map(x=>x/s)};
-  const expWeight=(idxFromEnd,halfLife)=>Math.exp(-(Math.log(2)/Math.max(1,halfLife))*idxFromEnd);
-
-  // —— 解析数据 ——
-  function parseRecords(json){
-    let arr=[];
-    if (Array.isArray(json)) arr=json;
-    else if (json?.result){
-      if (Array.isArray(json.result)) arr=json.result;
-      else if (Array.isArray(json.result.data)) arr=json.result.data;
-      else if (Array.isArray(json.result?.data?.list)) arr=json.result.data.list;
-    }else if (Array.isArray(json?.data)) arr=json.data;
-    arr = (arr||[]).filter(x=> typeof x?.preDrawCode==='string' || Array.isArray(x?.preDrawCode));
-    return arr.map(x=>{
-      const raw = Array.isArray(x.preDrawCode) ? x.preDrawCode.join(',') : String(x.preDrawCode||'').trim();
-      const nums = raw.split(/[ ,|]+/).map(s=>parseInt(s,10)).filter(Number.isFinite);
-      return { issue: x.preDrawIssue ?? x.issue ?? '', time: x.preDrawTime ?? x.time ?? '', codes: nums, champ: nums[0] ?? null };
-    });
-  }
-
-  // —— 下一期期号（字符串安全） ——
-  function nextIssueOf(issue){
-    const s = String(issue ?? '');
-    if (!s) return '';
-    const m = s.match(/(\d+)(?!.*\d)/);
-    if (!m) return '';
-    const num = m[1];
-    const start = (m.index!=null) ? m.index : s.lastIndexOf(num);
-    let inc;
-    try { inc = (BigInt(num) + 1n).toString().padStart(num.length, '0'); }
-    catch { inc = String(parseInt(num,10)+1).padStart(num.length,'0'); }
-    return s.slice(0, start) + inc + s.slice(start + num.length);
-  }
-
-  // —— 建模 ——
-  function freqDist(recs,halfLife){
-    const n=recs.length, f=zeros10();
-    for(let i=0;i<n;i++){
-      const r=recs[n-1-i]; if(!r?.champ) continue;
-      const w=expWeight(i,halfLife), idx=r.champ-1;
-      if(idx>=0&&idx<10) f[idx]+=w;
-    }
-    return normalize10(f);
-  }
-  function markovNext(recs,halfLife){
-    const T=Array.from({length:10},()=>zeros10());
-    const n=recs.length;
-    for(let i=0;i<n-1;i++){
-      const a=recs[i].champ, b=recs[i+1].champ; if(!a||!b) continue;
-      const w=expWeight((n-2)-i,halfLife);
-      const ai=a-1, bi=b-1; if(ai>=0&&ai<10&&bi>=0&&bi<10) T[ai][bi]+=w;
-    }
-    const latest=recs[n-1]?.champ ?? null;
-    const cond = (latest && latest>=1&&latest<=10) ? normalize10(T[latest-1]) : zeros10();
-    return cond;
-  }
-  const combined=(recs,halfLife,alpha)=>{
-    const base=freqDist(recs,halfLife);
-    const cond=markovNext(recs,halfLife);
-    return normalize10(base.map((v,i)=> alpha*v + (1-alpha)*cond[i]));
-  }
-  const topK=(prob,k)=> prob.map((p,i)=>({num:i+1,p})).sort((a,b)=>b.p-a.p||a.num-b.num).slice(0,k);
-
-  // —— 渲染：历史（支持条数与搜索过滤） ——
-  function renderHistoryFiltered(){
-    const tbody=$('historyTbl').querySelector('tbody');
-    tbody.innerHTML='';
-    if(!lastRecs.length) return;
-    const q = $('histSearch').value.trim();
-    const countSel = $('histCount').value;
-    let arr = lastRecs.slice(); // 升序已在 compute 中做
-    if(q){
-      const s=q.toLowerCase();
-      arr = arr.filter(r=> String(r.issue).toLowerCase().includes(s) || String(r.time).toLowerCase().includes(s));
-    }
-    if(countSel!=='all'){
-      const n=parseInt(countSel,10)||20;
-      arr = arr.slice(-n);
-    }
-    arr.slice().reverse().forEach(r=>{
-      const tr=document.createElement('tr'); tr.className='compactRow';
-      const td1=document.createElement('td'); td1.textContent=String(r.issue||'-');
-      const td2=document.createElement('td'); td2.textContent=r.time||'-';
-      const td3=document.createElement('td'); td3.textContent=r.champ??'-';
-      const td4=document.createElement('td');
-      td4.innerHTML=(r.codes||[]).map(n=>`<span style="display:inline-block;min-width:24px;text-align:center;border:1px solid #e5e7eb;border-radius:6px;padding:2px 4px;margin-right:4px;background:#f9fafb">${String(n).padStart(2,'0')}</span>`).join('');
-      [td1,td2,td3,td4].forEach(td=>tr.appendChild(td));
-      tbody.appendChild(tr);
-    });
-  }
-
-  // —— 渲染：日志（桌面侧栏 + 移动抽屉双份渲染） ——
-  function loadLogs(){try{return JSON.parse(localStorage.getItem(LOG_KEY)||'[]')}catch{return[]}}
-  function saveLogs(x){localStorage.setItem(LOG_KEY,JSON.stringify(x))}
-// ===== 统计：总期数 / 最大连中 / 最大连挂（只读日志）=====
-function calcStatsFromLogs(logs){
-  let total = 0;
-  let curHit = 0, maxHit = 0;
-  let curMiss = 0, maxMiss = 0;
-
-  logs
-    .filter(l => l.actual !== null)
-    .sort((a,b)=>a.ts - b.ts)
-    .forEach(l=>{
-      total++;
-      const hit = Array.isArray(l.plan) && l.plan.includes(l.actual);
-      if(hit){
-        curHit++; curMiss = 0;
-        if(curHit > maxHit) maxHit = curHit;
-      }else{
-        curMiss++; curHit = 0;
-        if(curMiss > maxMiss) maxMiss = curMiss;
-      }
-    });
-return { total, maxHit, maxMiss };
+function updateCredStatus(){
+  const s = document.getElementById("credStatus");
+  const cfg = loadSettings();
+  if(cfg.token && cfg.chatId) s.innerText = `已保存 Token 与 Chat ID；高阈=${cfg.high}，低阈=${cfg.low}，缓冲±${cfg.margin}`;
+  else s.innerText = "Token 或 Chat ID 未完整设置";
 }
-  function renderLogs(){
+document.getElementById("saveCredBtn").addEventListener("click", ()=>{
+  saveSettings();
+  alert("已保存设置（保存在本地浏览器 storage）");
+});
+document.getElementById("testNotifyBtn").addEventListener("click", ()=>{
+  const cfg = loadSettings();
+  if(!cfg.token || !cfg.chatId){ alert("请先输入并保存 Bot Token 与 Chat ID"); return; }
+  const testRecord = { issue: "TEST", prediction: "提示测试：阈值区间接近", valid:true, lockedSeq:0, time: new Date().toLocaleString(), oscillation:false };
+  notifyTelegramSimple(testRecord);
+  alert("已发送测试通知，若未收到请检查 token/chat_id");
+});
+/* 初始化 UI */
+const saved = loadSettings();
+document.getElementById("botTokenInput").value = saved.token || "";
+document.getElementById("chatIdInput").value = saved.chatId || "";
+document.getElementById("highThreshInput").value = saved.high || DEFAULT_HIGH;
+document.getElementById("lowThreshInput").value = saved.low || DEFAULT_LOW;
+document.getElementById("marginInput").value = saved.margin || DEFAULT_MARGIN;
+updateCredStatus();
 
-    const logs=loadLogs();
-    const fill = (tb, rows)=>{
-      tb.innerHTML='';
-      rows.slice().reverse().forEach(l=>{
-        const tr=document.createElement('tr');
-        const hit=(l.actual!=null && Array.isArray(l.plan) && l.plan.includes(l.actual));
-        tr.innerHTML = `
-          <td>${new Date(l.ts).toLocaleString()}</td>
-          <td>${String(l.issue)}</td>
-          <td>${(l.plan||[]).join(',')}</td>
-          <td>${l.actual??'-'}</td>
-          <td>${l.actual==null? '待开奖' : `<span class="pill ${hit?'hit':'miss'}">${hit?'命中':'未中'}</span>`}</td>
-        `;
-        tb.appendChild(tr);
-      });
-    };
-    fill($('logTbl').querySelector('tbody'), logs);
-    fill($('logTblMobile'), logs);
-// ===== 统计展示（追加，不影响原渲染）=====
-const stats = calcStatsFromLogs(logs);
-const statBox = document.getElementById('logStats');
-if(statBox){
-  statBox.textContent =
-    `总期数：${stats.total} ｜ 最大连中：${stats.maxHit} ｜ 最大连挂：${stats.maxMiss}`;
+/* ====== 通知：前端直接调用 Telegram（最简单，存在泄露风险） ====== */
+const notifyRate = { lastSentForIssue: {}, minIntervalMs: 5000 }; // per-issue rate-limit
+
+async function notifyTelegramSimple(record){
+  try{
+    if(!record || !record.issue) return;
+    const key = String(record.issue);
+    const now = Date.now();
+    const last = notifyRate.lastSentForIssue[key] || 0;
+    if(now - last < notifyRate.minIntervalMs){
+      console.log("通知速率限制，跳过重复推送", record.issue);
+      return;
+    }
+    notifyRate.lastSentForIssue[key] = now;
+
+    const cfg = loadSettings();
+    const BOT_TOKEN = cfg.token;
+    const CHAT_ID = cfg.chatId;
+    if(!BOT_TOKEN || !CHAT_ID){
+      console.log("通知未发送：未配置 BOT_TOKEN 或 CHAT_ID");
+      return;
+    }
+
+    const title = `提示：${record.prediction}`;
+    const parts = [
+      `详情：${record.prediction}`,
+      record.lockedSeq ? `锁定期：${record.lockedSeq}` : "",
+      record.oscillation ? `振荡：是` : "",
+      `时间：${record.time || (new Date()).toLocaleString()}`
+    ].filter(Boolean);
+    const text = `${title}\n` + parts.join("  ·  ");
+
+    const url = `https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`;
+    const body = { chat_id: CHAT_ID, text: text };
+
+    fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body)
+    }).then(resp => resp.json())
+      .then(j => {
+        if(!j.ok) console.warn("Telegram 返回错误：", j);
+        else console.log("已发送 Telegram 通知：", record.issue);
+      }).catch(err => console.warn("发送 Telegram 失败：", err));
+  }catch(e){
+    console.warn("notifyTelegramSimple error", e);
+  }
 }
 
-// ===== 风控信息展示 =====
-const r = calcRiskFromLogs(logs);
-const box = document.getElementById('riskBox');
-if(box){
-  box.textContent =
-    `当前状态：${r.mode === 'observe' ? '观察' : '投注'} ｜ ` +
-    `当前下注：${r.curBet} ｜ ` +
-    `总盈亏：${r.profit} ｜ ` +
-    `最大回撤：${r.maxDrawdown} ｜ ` +
-    `连挂：${r.curMiss}` +
-    (r.warn ? ' ⚠️连挂预警' : '');
+/* ====== 布林与预测核心函数（与之前逻辑一致） ====== */
+const DIST_RATIO_THRESHOLD = 0.35;
+const BANDWIDTH_RATIO_THRESHOLD = 0.15;
+const SLOPE_THRESHOLD = 0.5;
+const LOCK_BW_THRESHOLD = 0.30;
+const LOCK_MOMENTUM_DECAY_RATIO = 0.7;
+const OSC_WINDOW = 8;
+const OSC_THRESHOLD = 0.75;
+
+function isValidZone(i){
+  if(i<=WINDOW) return false;
+  const up = upperArr[i], low = lowerArr[i], mid = midArr[i];
+  if(mid === null || up === null || low === null) return false;
+  const dist = Math.abs(redArr[i]-mid)/(up-low || 1e-9);
+  const width = (up-low)/(Math.abs(mid) || 1e-9);
+  const slope = Math.abs(redArr[i]-redArr[i-1]);
+  return dist >= DIST_RATIO_THRESHOLD && width >= BANDWIDTH_RATIO_THRESHOLD && slope >= SLOPE_THRESHOLD;
+}
+function detectOscillation(){
+  const n = firstNums.length;
+  if(n < 3) return {osc:false, rate:0};
+  const m = Math.min(OSC_WINDOW, n);
+  const tail = firstNums.slice(n - m, n);
+  let flips = 0;
+  for(let i=1;i<tail.length;i++){
+    const prev = tail[i-1] >= 6 ? 1 : 0;
+    const cur = tail[i] >= 6 ? 1 : 0;
+    if(prev !== cur) flips++;
+  }
+  const rate = flips / (m - 1);
+  return {osc: rate >= OSC_THRESHOLD, rate};
+}
+function shouldTriggerLock(i){
+  if(i<=WINDOW+1) return false;
+  const up = upperArr[i], low = lowerArr[i], mid = midArr[i];
+  if(mid === null || up === null || low === null) return false;
+  const bandWidthRatio = (up - low) / (Math.abs(mid) || 1e-9);
+  if(bandWidthRatio < LOCK_BW_THRESHOLD) return false;
+  const slopeCurr = redArr[i] - redArr[i-1];
+  const slopePrev = redArr[i-1] - redArr[i-2];
+  if(slopeCurr === 0 || slopePrev === 0) return false;
+  if(Math.sign(slopeCurr) === Math.sign(slopePrev) && Math.abs(slopeCurr) <= Math.abs(slopePrev) * LOCK_MOMENTUM_DECAY_RATIO){
+    const dist = Math.abs(redArr[i] - mid) / ((up - low) || 1e-9);
+    if(dist >= 0.20) return true;
+  }
+  return false;
+}
+function predictDirection(i){
+  return (redArr[i] - redArr[i-1]) >= 0 ? "大" : "小";
 }
 
+/* ====== 渲染函数 ====== */
+function showLatestResult(data){
+  const last = data[data.length-1];
+  const first = parseInt(last.preDrawCode.split(",")[0]);
+  const size = first <= 5 ? "小" : "大";
+  document.getElementById("latestResult").innerHTML =
+    `🎯 最新开奖期号：<b>${last.preDrawIssue}</b>　第一名：<b>${first}</b>　结果：<b>${size}</b>`;
 }
-
-  // —— URL 组装 & 请求 ——
-  const buildTargetURL=()=> $('api').value.trim().replace(/\?+.*/,'') + `?lotCode=10037&date=${encodeURIComponent($('date').value.trim())}`;
-  function buildFinalURL(){
-    const mode=$('mode').value; const target=buildTargetURL();
-    if(mode==='direct') return target;
-    if(mode==='proxy'){
-      const px=$('proxy').value.trim();
-      if(!px) throw new Error('代理模式需填写“代理前缀”。\n示例：1) https://your-proxy.example.com/  2) https://your-proxy.example.com/{url}');
-      if(px.includes('{url}')) return px.replace('{url}', encodeURIComponent(target));
-      const u=new URL(target);
-      return px.replace(/\/+$/,'') + u.pathname + u.search;
-    }
-    return target;
-  }
-  async function fetchJSONWithDetails(url){
-    try{
-      const res=await fetch(url,{credentials:'omit'});
-      const ct=res.headers.get('content-type')||''; const text=await res.text();
-      if(!res.ok) throw new Error(`HTTP ${res.status} ${res.statusText}\nURL: ${url}\n响应体: ${text.slice(0,500)}`);
-      try{ return JSON.parse(text) }catch(e){ throw new Error(`JSON 解析失败：${e.message}\nURL: ${url}\n片段: ${text.slice(0,500)}`) }
-    }catch(e){
-      if(String(e).includes('Failed to fetch')) throw new Error(`网络/跨域失败（可能 CORS）\n${e.message}\nURL: ${url}\n建议：代理或粘贴 JSON。`);
-      throw e;
-    }
-  }
-
-  // —— 主流程 ——
-  function computeAndRender(recs,k,halfLife,alpha){
-    if(!recs.length) throw new Error('没有解析到历史数据（检查日期/返回结构）');
-    // 升序（旧→新）
-    recs.sort((a,b)=> (a.time||'').localeCompare(b.time||'') || String(a.issue).localeCompare(String(b.issue)));
-    lastRecs = recs.slice();
-    renderHistoryFiltered();
-
-    const prob=combined(recs,halfLife,alpha);
-    const picks=topK(prob,k);
-    const latest=recs[recs.length-1];
-
-    let nextIssue = nextIssueOf(latest?.issue);
-    if(!nextIssue){
-      try{ nextIssue = String(BigInt(String(latest?.issue||'0')) + 1n); }
-      catch{ nextIssue = String((parseInt(String(latest?.issue||'0'),10)||0)+1); }
-    }
-
-    $('resultCard').style.display='block';
-    $('nextIssue').textContent=`预测期号：${String(nextIssue)}（基于最近 ${recs.length} 期）`;
-    $('plan').innerHTML=picks.map(x=>`<span>${String(x.num).padStart(2,'0')}</span>`).join('');
-    $('params').textContent=`K=${k}，半衰期=${halfLife}，α=${alpha.toFixed(2)}；结果= α·频次 + (1-α)·Markov(最新一期条件分布)`;
-    $('latest').textContent= latest ? `最新期：${String(latest.issue)}，冠军：${latest.champ}` : '-';
-
-    // 记录日志（待对账）
-    const logs=loadLogs();
-    const planNums=picks.map(x=>x.num);
-    // ===== 新增：计划号码按从小到大排序（仅用于日志显示）=====
-    planNums.sort((a, b) => a - b);
-    const i=logs.findIndex(x=> String(x.issue) === String(nextIssue) );
-    if(i>=0){ logs[i].plan=planNums; logs[i].ts=Date.now(); }
-    else{ logs.push({ts:Date.now(),issue:String(nextIssue),plan:planNums,actual:null}); }
-    saveLogs(logs); renderLogs();
-
-    return { latest };
-  }
-
-  async function pullPredictReconcile(){
-    hideErr();
-    try{
-      setState('wait','拉取中…');
-      const date=$('date').value.trim();
-      if(!/^\d{4}-\d{2}-\d{2}$/.test(date)) throw new Error('日期格式应为 YYYY-MM-DD，例如 2025-08-21');
-      const k=Math.max(1,Math.min(10, parseInt($('k').value,10)||5));
-      const halfLife=Math.max(1, parseInt($('halfLife').value,10)||60);
-      const alpha=Math.max(0,Math.min(1, parseFloat($('alpha').value)||0.7));
-      const mode=$('mode').value;
-
-      let json=null;
-      if(mode==='paste'){
-        const txt=$('jsonArea')?.value?.trim?.()||''; if(!txt) throw new Error('请粘贴 JSON 再开始计算。');
-        try{ json=JSON.parse(txt); }catch(e){ throw new Error('粘贴的 JSON 解析失败：'+e.message); }
-      }else{
-        const finalURL=buildFinalURL();
-        json = await fetchJSONWithDetails(finalURL);
-      }
-
-      const recs=parseRecords(json).filter(r=>Array.isArray(r.codes)&&r.codes.length>=1);
-      const { latest } = computeAndRender(recs,k,halfLife,alpha);
-
-      // 对账
-      const logs=loadLogs(); let hit=0,miss=0;
-      for(const l of logs){
-        if(l.actual==null && String(l.issue)===String(latest.issue)){
-          l.actual = latest.champ??null;
-          if(l.actual!=null && Array.isArray(l.plan) && l.plan.includes(l.actual)) hit++; else miss++;
-        }
-      }
-      saveLogs(logs); renderLogs();
-
-      setState('ok',`完成：🤴🏻恭喜发财`);
-      setLastOk(Date.now());
-      return true;
-
-    }catch(e){
-      errCount++; setErrCnt(errCount);
-      showErr(e);
-      setState('err','失败：请查看错误信息');
-      return false;
-    }
-  }
-
-  // —— 自动更新 ——
-  function stopAuto(){ if(autoTimer){ clearInterval(autoTimer); autoTimer=null } if(cdTimer){ clearTimeout(cdTimer); cdTimer=null } $('countdown').textContent='--' }
-  function startAuto(){
-    stopAuto();
-    const sec = Math.max(5, Math.min(180, parseInt($('autoSec').value,10)||30));
-    const tick = async ()=>{
-      nextTs = Date.now() + sec*1000;
-      startCountdown();
-      await pullPredictReconcile();
-    };
-    tick();
-    autoTimer = setInterval(tick, sec*1000);
-  }
-
-  // —— 事件绑定 ——
-  $('go').addEventListener('click', pullPredictReconcile);
-  $('reconcile').addEventListener('click', async ()=>{
-    hideErr();
-    try{
-      setState('wait','对账中…');
-      const mode=$('mode').value; let recs=[];
-      if(mode==='paste'){
-        const txt=$('jsonArea')?.value?.trim?.()||''; if(!txt) throw new Error('请粘贴 JSON 再对账。');
-        recs=parseRecords(JSON.parse(txt));
-      }else{
-        const finalURL=buildFinalURL();
-        const json=await fetchJSONWithDetails(finalURL);
-        recs=parseRecords(json);
-      }
-      if(!recs.length) throw new Error('没有解析到历史数据');
-      recs.sort((a,b)=> (a.time||'').localeCompare(b.time||'') || String(a.issue).localeCompare(String(b.issue)));
-      const latest=recs[recs.length-1];
-
-      const logs=loadLogs(); let hit=0,miss=0;
-      for(const l of logs){
-        if(l.actual==null && String(l.issue)===String(latest.issue)){
-          l.actual = latest.champ??null;
-          if(l.actual!=null && Array.isArray(l.plan) && l.plan.includes(l.actual)) hit++; else miss++;
-        }
-      }
-      saveLogs(logs); renderLogs();
-      setState('ok',`对账完成：命中 ${hit}，未中 ${miss}`);
-      setLastOk(Date.now());
-    }catch(e){
-      errCount++; setErrCnt(errCount);
-      showErr(e);
-      setState('err','对账失败');
-    }
+function renderLast30(data){
+  const container = document.getElementById("last30");
+  container.innerHTML = "";
+  const sliceCount = 30;
+  const tail = data.slice(-sliceCount);
+  tail.forEach((d, idx) => {
+    const num = parseInt(d.preDrawCode.split(",")[0]);
+    const isBig = num >= 6;
+    const box = document.createElement("div");
+    box.className = "box " + (isBig ? "big" : "small");
+    if(idx === tail.length - 1) box.className += " latest";
+    box.title = `期 ${d.preDrawIssue}：${num} (${isBig ? '大' : '小'})`;
+    box.innerText = num;
+    container.appendChild(box);
   });
-  $('clear').addEventListener('click',()=>{
-    if(confirm('确认清空本地命中日志？')){
-      localStorage.removeItem(LOG_KEY); renderLogs();
-      setState('ok','已清空本地日志');
+}
+
+/* ====== 主循环 ====== */
+async function fetchData(){
+  try{
+    const res = await fetch(API);
+    const json = await res.json();
+    const data = json.result.data.reverse();
+
+    labels = []; redArr = []; midArr = []; upperArr = []; lowerArr = []; firstNums = [];
+    let raw = [], score = 0;
+    data.forEach(d=>{
+      const first = parseInt(d.preDrawCode.split(",")[0]);
+      firstNums.push(first);
+      const v = first <= 5 ? -first : first;
+      score = score * DECAY + v;
+      raw.push(score);
+      labels.push(d.preDrawIssue);
+    });
+
+    for(let i=0;i<raw.length;i++){
+      redArr.push(raw[i]);
+      if(i < WINDOW){
+        midArr.push(null); upperArr.push(null); lowerArr.push(null);
+      } else {
+        const w = raw.slice(i-WINDOW, i);
+        const m = mean(w);
+        const s = std(w);
+        midArr.push(m);
+        upperArr.push(m + 2*s);
+        lowerArr.push(m - 2*s);
+      }
     }
+
+    showLatestResult(data);
+    renderLast30(data);
+    processPredictionWithOscLock(data);
+    settleResults(data);
+    checkExtraNotifications(data); // <-- 区间接近逻辑在这里
+    drawChart();
+    renderPanel();
+    updateStats();
+  } catch(e){
+    console.error("拉取数据失败:", e);
+  }
+}
+
+/* ====== 预测处理（震荡锁定 & 原有逻辑） ====== */
+// （此处逻辑与之前版本一致：不再每期通知）
+function processPredictionWithOscLock(data){
+  if(redArr.length < 3) return;
+  const latestIssue = data[data.length-1].preDrawIssue;
+  if(lastPredictedIssue === latestIssue) return;
+  const i = redArr.length - 2;
+  if(i <= WINDOW) return;
+
+  const oscRes = detectOscillation();
+  const isOsc = oscRes.osc;
+  const oscRate = oscRes.rate;
+
+  if(activeLock && activeLock.active){
+    if(activeLock.reason === 'osc'){
+      if(isOsc){
+        activeLock.count += 1;
+        const pred = activeLock.prediction;
+        const record = {
+          issue: latestIssue + 1, prediction: pred, actual: "等待", hit: "",
+          time: new Date().toLocaleString(), valid: activeLock.validOnStart, markIndex: i,
+          color: activeLock.color, lockedSeq: activeLock.count, oscillation: true, oscRate: Math.round(oscRate*1000)/10, reason: 'osc'
+        };
+        predictionRecords.push(record);
+        markLines.push({ index: i, color: activeLock.color });
+        lastPredictedIssue = latestIssue;
+        document.getElementById("prediction").innerText = `振荡锁定中（${activeLock.count}期）：预测 ${record.issue} 期 = ${pred}`;
+        return;
+      } else {
+        activeLock.active = false; activeLock = null;
+        document.getElementById("prediction").innerText = `振荡解除，重新评估 ${latestIssue+1} 期`;
+      }
+    } else {
+      const slopeCurr = redArr[i] - redArr[i-1];
+      const currSign = Math.sign(slopeCurr);
+      if(currSign === 0 || currSign !== activeLock.predSign){
+        activeLock.active = false; activeLock = null;
+        document.getElementById("prediction").innerText = `锁定解除，重新评估 ${latestIssue+1} 期`;
+      } else {
+        activeLock.count += 1;
+        const pred = activeLock.prediction;
+        const record = {
+          issue: latestIssue + 1, prediction: pred, actual: "等待", hit: "",
+          time: new Date().toLocaleString(), valid: activeLock.validOnStart, markIndex: i,
+          color: activeLock.color, lockedSeq: activeLock.count, oscillation: false, reason: 'momentum'
+        };
+        predictionRecords.push(record);
+        markLines.push({ index: i, color: activeLock.color });
+        lastPredictedIssue = latestIssue;
+        document.getElementById("prediction").innerText = `锁定中（${activeLock.count}期）：预测 ${record.issue} 期 = ${pred}`;
+        return;
+      }
+    }
+  }
+
+  if(isOsc){
+    const pred = predictDirection(i);
+    const valid = isValidZone(i);
+    const color = "rgba(120,120,120,0.6)";
+    activeLock = { prediction: pred, startIssue: latestIssue + 1, count: 1, predSign: Math.sign(redArr[i] - redArr[i-1]) || 1, active: true, color: color, validOnStart: valid, reason: 'osc' };
+    const record = { issue: latestIssue + 1, prediction: pred, actual: "等待", hit: "", time: new Date().toLocaleString(), valid: valid, markIndex: i, color: color, lockedSeq: 1, oscillation: true, oscRate: Math.round(oscRate*1000)/10, reason: 'osc' };
+    predictionRecords.push(record);
+    markLines.push({ index: i, color: color });
+    lastPredictedIssue = latestIssue;
+    document.getElementById("prediction").innerText = `检测到振荡，触发振荡锁定：预测 ${record.issue} 期 = ${pred}`;
+    return;
+  }
+
+  const valid = isValidZone(i);
+  const pred = predictDirection(i);
+  const predSign = Math.sign(redArr[i] - redArr[i-1]) || 1;
+  const color = valid ? (pred === "大" ? "green" : "blue") : "rgba(120,120,120,0.6)";
+
+  if(shouldTriggerLock(i)){
+    activeLock = { prediction: pred, startIssue: latestIssue + 1, count: 1, predSign: predSign, active: true, color: color, validOnStart: valid, reason: 'momentum' };
+    const record = { issue: latestIssue + 1, prediction: pred, actual: "等待", hit: "", time: new Date().toLocaleString(), valid: valid, markIndex: i, color: color, lockedSeq: 1, oscillation: false, reason: 'momentum' };
+    predictionRecords.push(record);
+    markLines.push({ index: i, color: color });
+    lastPredictedIssue = latestIssue;
+    document.getElementById("prediction").innerText = `触发锁定（强波动+拉扯）：预测 ${record.issue} 期 = ${pred}`;
+    return;
+  }
+
+  const record = { issue: latestIssue + 1, prediction: pred, actual: "等待", hit: "", time: new Date().toLocaleString(), valid: valid, markIndex: i, color: color, lockedSeq: 0, oscillation: false };
+  predictionRecords.push(record);
+  markLines.push({ index: i, color: color });
+  lastPredictedIssue = latestIssue;
+  document.getElementById("prediction").innerText = valid ? `预测 ${record.issue} 期（有效区）：${pred}` : `预测 ${record.issue} 期（无效区，仍记录）：${pred}`;
+}
+
+/* ====== 结算 ====== */
+function settleResults(data){
+  predictionRecords.forEach(r=>{
+    if(r.actual !== "等待") return;
+    const match = data.find(d=>d.preDrawIssue === r.issue);
+    if(!match) return;
+    const first = parseInt(match.preDrawCode.split(",")[0]);
+    const actual = first<=5 ? "小" : "大";
+    r.actual = actual;
+    r.hit = (actual === r.prediction) ? "是" : "否";
   });
-  $('autoToggle').addEventListener('change', (e)=>{ if(e.target.checked) startAuto(); else stopAuto() });
-  $('autoSec').addEventListener('change', ()=>{ if($('autoToggle').checked) startAuto() });
-  $('mode').addEventListener('change', ()=>{ $('pasteBox').style.display = ($('mode').value==='paste') ? 'block' : 'none' });
+}
 
-  // 历史筛选
-  $('histCount').addEventListener('change', renderHistoryFiltered);
-  $('histSearch').addEventListener('input', renderHistoryFiltered);
+/* ====== 检查红线阈值与连挂/连中通知（区间接近触发） ====== */
+function checkExtraNotifications(data){
+  const cfg = loadSettings();
+  const highThresh = cfg.high;
+  const lowThresh = cfg.low;
+  const margin = isNaN(cfg.margin) ? DEFAULT_MARGIN : cfg.margin;
+  const latestIssue = data[data.length-1].preDrawIssue;
 
-  // 折叠默认关闭，若想默认展开可加 open 属性
-  // 手机日志抽屉
-  const drawer=$('drawer');
-  $('openDrawer').addEventListener('click', ()=> drawer.classList.add('show'));
-  $('closeDrawer').addEventListener('click', ()=> drawer.classList.remove('show'));
+  // 红线当前值（最后一个点）
+  const lastIndex = redArr.length - 1;
+  let currentHighInRange = false;
+  let currentLowInRange = false;
+  if(lastIndex >= 0){
+    const val = redArr[lastIndex];
+    // 区间：高阈 ± margin
+    if(typeof highThresh === "number" && !isNaN(highThresh)){
+      if(val >= (highThresh - margin) && val <= (highThresh + margin)) currentHighInRange = true;
+    }
+    // 区间：低阈 ± margin
+    if(typeof lowThresh === "number" && !isNaN(lowThresh)){
+      if(val >= (lowThresh - margin) && val <= (lowThresh + margin)) currentLowInRange = true;
+    }
 
-  // 初始化
-  (function init(){
-    const d=new Date(); const yyyy=d.getFullYear(); const mm=String(d.getMonth()+1).padStart(2,'0'); const dd=String(d.getDate()).padStart(2,'0');
-    $('date').value=`${yyyy}-${mm}-${dd}`;
-    renderLogs();
-    setState('wait','等待操作');
-  })();
+    // 仅在“从外部进入区间”时通知一次（避免每期重复）
+    if(currentHighInRange && !prevHighInRange){
+      prevHighInRange = true;
+      lastNotifiedHighIssue = latestIssue;
+      const rec = { issue: `ALERT-R-HIGH-${latestIssue}`, prediction: `红线进入高阈区间(${highThresh}±${margin})`, valid:false, lockedSeq:0, time: new Date().toLocaleString(), oscillation:false };
+      notifyTelegramSimple(rec);
+      console.log("通知：红线进入高阈区间", val, "期", latestIssue);
+    }
+    if(!currentHighInRange && prevHighInRange){
+      // 离开区间则重置 prev 状态，允许后续再次进入时触发
+      prevHighInRange = false;
+    }
 
-})();
+    if(currentLowInRange && !prevLowInRange){
+      prevLowInRange = true;
+      lastNotifiedLowIssue = latestIssue;
+      const rec = { issue: `ALERT-R-LOW-${latestIssue}`, prediction: `红线进入低阈区间(${lowThresh}±${margin})`, valid:false, lockedSeq:0, time: new Date().toLocaleString(), oscillation:false };
+      notifyTelegramSimple(rec);
+      console.log("通知：红线进入低阈区间", val, "期", latestIssue);
+    }
+    if(!currentLowInRange && prevLowInRange){
+      prevLowInRange = false;
+    }
+  }
+
+  // 连挂 / 连中检测（基于 predictionRecords 中最新命中状态）
+  let currentMiss = 0, currentHit = 0;
+  for(let i = predictionRecords.length - 1; i >= 0; i--){
+    const h = predictionRecords[i].hit;
+    if(h === "否"){ currentMiss++; currentHit = 0; }
+    else if(h === "是"){ currentHit++; currentMiss = 0; }
+    else { break; } // 遇到等待则停止
+  }
+
+  // 连挂通知：触发时为 >=3 且比上次通知的数更大（避免重复）
+  if(currentMiss >= 3 && currentMiss > lastNotifiedMissStreak){
+    lastNotifiedMissStreak = currentMiss;
+    const rec = { issue: `ALERT-MISS-${predictionRecords.length}`, prediction: `连续未中 ${currentMiss} 把`, valid:false, lockedSeq:0, time: new Date().toLocaleString(), oscillation:false };
+    notifyTelegramSimple(rec);
+    console.log("通知：连挂", currentMiss);
+  }
+  // 连中通知：触发时为 >=6 且比上次通知更大
+  if(currentHit >= 6 && currentHit > lastNotifiedHitStreak){
+    lastNotifiedHitStreak = currentHit;
+    const rec = { issue: `ALERT-HIT-${predictionRecords.length}`, prediction: `连续命中 ${currentHit} 把`, valid:false, lockedSeq:0, time: new Date().toLocaleString(), oscillation:false };
+    notifyTelegramSimple(rec);
+    console.log("通知：连中", currentHit);
+  }
+}
+
+/* ======= 轻量化绘图函数（替换旧的 drawChart） ======= */
+function drawChart(){
+  const markPlugin = {
+    id: 'markPlugin',
+    afterDatasetsDraw(chartInstance, args, options) {
+      const ctx = chartInstance.ctx;
+      if(!Array.isArray(markLines) || markLines.length === 0) return;
+      const meta = chartInstance.getDatasetMeta(0); // 红线数据元
+      if(!meta || !meta.data) return;
+      ctx.save();
+      for(const m of markLines){
+        const idx = m.index;
+        if(idx == null) continue;
+        const pt = meta.data[idx];
+        if(!pt) continue;
+        ctx.beginPath();
+        ctx.fillStyle = m.color || 'rgba(120,120,120,0.8)';
+        ctx.arc(pt.x, pt.y - 6, 5, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      ctx.restore();
+    }
+  };
+
+  if(chart){
+    chart.data.labels = labels;
+    if(chart.data.datasets && chart.data.datasets.length >= 4){
+      chart.data.datasets[0].data = redArr;
+      chart.data.datasets[1].data = midArr;
+      chart.data.datasets[2].data = upperArr;
+      chart.data.datasets[3].data = lowerArr;
+    }
+    chart.update('none');
+    return;
+  }
+
+  const datasets = [
+    { label:"红线", data:redArr, borderColor:"red", borderWidth:2, pointRadius:0, fill:false, tension:0 },
+    { label:"中轨", data:midArr, borderColor:"orange", borderWidth:1, pointRadius:0, fill:false, tension:0 },
+    { label:"上轨", data:upperArr, borderColor:"#999", borderWidth:1, pointRadius:0, fill:false, tension:0 },
+    { label:"下轨", data:lowerArr, borderColor:"#999", borderWidth:1, pointRadius:0, fill:false, tension:0 }
+  ];
+
+  chart = new Chart(document.getElementById("chart"), {
+    type: 'line',
+    data: { labels, datasets },
+    options: {
+      animation: false,
+      responsive: false,
+      plugins: { legend: { display: false } },
+      elements: { point: { radius: 0 } },
+      scales: { x: { display: false }, y: { display: true } },
+      interaction: { mode: 'index', intersect: false }
+    },
+    plugins: [markPlugin]
+  });
+}
+
+/* ====== 面板 / 统计 / CSV 等 ====== */
+function renderPanel(){
+  const tbody = document.getElementById("recordBody");
+  tbody.innerHTML = "";
+  predictionRecords.forEach(r=>{
+    const colorStyle = r.hit === "是" ? "color:green;font-weight:600" : (r.hit === "否" ? "color:red" : "");
+    const typeText = r.valid ? "有效" : "无效";
+    const lockedText = r.lockedSeq && r.lockedSeq > 0 ? r.lockedSeq : "";
+    const oscText = r.oscillation ? `是 (${r.oscRate || ''}%)` : "否";
+    tbody.innerHTML += `<tr>
+      <td>${r.issue}</td>
+      <td>${typeText}</td>
+      <td style="font-weight:600">${r.prediction}</td>
+      <td>${r.actual}</td>
+      <td style="${colorStyle}">${r.hit}</td>
+      <td>${lockedText}</td>
+      <td>${oscText}</td>
+      <td>${r.time}</td>
+    </tr>`;
+  });
+}
+
+function updateStats(){
+  const total = predictionRecords.length;
+  const validCount = predictionRecords.filter(r=>r.valid).length;
+  const invalidCount = total - validCount;
+  const hits = predictionRecords.filter(r=>r.hit === "是").length;
+  const validHits = predictionRecords.filter(r=>r.valid && r.hit === "是").length;
+  const invalidHits = predictionRecords.filter(r=>!r.valid && r.hit === "是").length;
+  const rate = total ? Math.round(hits/total*10000)/100 : 0;
+  const validRate = validCount ? Math.round(validHits/validCount*10000)/100 : 0;
+  const invalidRate = invalidCount ? Math.round(invalidHits/invalidCount*10000)/100 : 0;
+
+  let maxStreak = 0;
+  let curStreakCalc = 0;
+  for(let i=0;i<predictionRecords.length;i++){
+    const h = predictionRecords[i].hit;
+    if(h === "否"){ curStreakCalc += 1; if(curStreakCalc > maxStreak) maxStreak = curStreakCalc; }
+    else if(h === "是"){ curStreakCalc = 0; }
+    else { curStreakCalc = 0; }
+  }
+  let currentStreak = 0;
+  for(let i = predictionRecords.length - 1; i >= 0; i--){
+    if(predictionRecords[i].hit === "否") currentStreak++;
+    else break;
+  }
+
+  document.getElementById("statTotal").innerText = `总预测: ${total}`;
+  document.getElementById("statValid").innerText = `有效: ${validCount} (命中 ${validHits}, ${validRate}%)`;
+  document.getElementById("statInvalid").innerText = `无效: ${invalidCount} (命中 ${invalidHits}, ${invalidRate}%)`;
+  document.getElementById("statHits").innerText = `命中: ${hits}`;
+  document.getElementById("statRate").innerText = `总体命中率: ${rate}%`;
+  document.getElementById("statCurStreak").innerText = `当前连挂: ${currentStreak}`;
+  document.getElementById("statMaxStreak").innerText = `最大连挂: ${maxStreak}`;
+
+  if(activeLock && activeLock.active){
+    document.getElementById("statLock").innerText = `当前锁定: 是（已锁 ${activeLock.count} 期，预测=${activeLock.prediction}, 原因=${activeLock.reason}）`;
+  } else {
+    document.getElementById("statLock").innerText = `当前锁定: 无`;
+  }
+
+  const oscRes = detectOscillation();
+  document.getElementById("statOsc").innerText = `振荡: ${oscRes.osc ? '是' : '否'} (${Math.round(oscRes.rate*100)}%)`;
+
+  document.getElementById("statDetail").innerText =
+    `提示：阈值通知使用“区间接近”(阈值±缓冲)，仅在从区间外进入区间时通知；普通每期预测不通知。`;
+}
+
+/* ====== CSV 导出 ====== */
+function exportPredictionCSV(){
+  if(predictionRecords.length === 0) { alert("暂无预测记录"); return; }
+  const header = ["issue","type","prediction","actual","hit","lockedSeq","oscillation","time","valid","reason"].join(",");
+  const body = predictionRecords.map(r=>{
+    return [r.issue, r.valid ? "有效" : "无效", r.prediction, r.actual, r.hit, r.lockedSeq||"", r.oscillation? "是":"否", r.time, r.valid, r.reason||""].join(",");
+  }).join("\n");
+  const csv = header + "\n" + body;
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(new Blob([csv], { type: "text/csv" }));
+  a.download = "prediction_records_all.csv";
+  a.click();
+}
+
+/* ====== 启动 ====== */
+fetchData();
+setInterval(fetchData, UPDATE_INTERVAL);
 </script>
 </body>
 </html>
